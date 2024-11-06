@@ -60,12 +60,12 @@ def stereo_disparity_fast(Il, Ir, bbox, maxd):
     Ir_padded = np.pad(Ir, padding_size, mode='edge')
 
     # Find bounding box corner in left image from values from bbox
-    x_min, y_min = bbox[1]
-    x_max, y_max = bbox[0]
+    x_min, x_max = bbox[0]
+    y_min, y_max = bbox[1]
 
     # Find disparity values for each pixel in bounding box
-    for y in range(y_min, y_max+1):
-        for x in range(x_min, x_max+1):
+    for y in range(y_min + padding_size, y_max + padding_size + 1):
+        for x in range(x_min + padding_size, x_max + padding_size + 1):
                 # Initialize values to track minimum SAD and corresponding disparity
                 min_sad = np.inf
                 best_disparity = 0
@@ -74,13 +74,14 @@ def stereo_disparity_fast(Il, Ir, bbox, maxd):
                 left_image_window = Il_padded[y:y+window_size, x: x+window_size]
 
                 # Loop over max_disparity for search
-                for disparity in range(-maxd, maxd+1):
+                for disparity in range(maxd+1):
                         # Ensure value is within bounds
-                        if (x+disparity) < 0 or (x+disparity) < (Ir.shape[1] - window_size):
+                        if (x - disparity) < 0:
                                 continue
 
                         # Get the right image window
-                        right_image_window = Ir_padded[y:y+window_size, (x+disparity):x+window_size+disparity]
+                        right_image_window = Ir_padded[y : y + window_size, (x - disparity) : (x - disparity) + window_size]
+
 
                         # Compute SAD similarity measure
                         sad = np.sum(np.abs(left_image_window - right_image_window))
@@ -89,8 +90,8 @@ def stereo_disparity_fast(Il, Ir, bbox, maxd):
                                 min_sad = sad
                                 best_disparity = disparity
                 
-                # Update Id with optimal disparity for that pixel
-                Id[y,x] = best_disparity
+                Id[y - padding_size,x - padding_size] = best_disparity
+        print(y)
                 
 
     # Note: Higher disparity means it is closer to image -> Darker
