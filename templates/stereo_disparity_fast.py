@@ -34,11 +34,66 @@ def stereo_disparity_fast(Il, Ir, bbox, maxd):
     #
     #  - Optimize for runtime AND for clarity.
 
-    #--- FILL ME IN ---
+    # Notes:
+    # basic, fixed window size matching routine
+    # use sum of absolute difference similarity measure
+    # correct matches is winner take all (lowest difference)
 
-    # Code goes here...
+    """
+    Steps:
+    1. Define window size
+    2. Initialize empty numpy array with shape of Il
+    3. Pad the image borders of image
+    4. Loop through each value in bounding box (row and columns)
+    """
 
-    #------------------
+    # Define window size
+    # Large window more robust to noise but may smooth out details
+    window_size = 5 # 5x5 windows
+
+    # Initialize Disparity Image 
+    Id = np.zeros((Il.shape))
+
+    # Pad boarders of image
+    padding_size = window_size // 2
+    Il_padded = np.pad(Il, padding_size, mode='edge')
+    Ir_padded = np.pad(Ir, padding_size, mode='edge')
+
+    # Find bounding box corner in left image from values from bbox
+    x_min, y_min = bbox[1]
+    x_max, y_max = bbox[0]
+
+    # Find disparity values for each pixel in bounding box
+    for y in range(y_min, y_max+1):
+        for x in range(x_min, x_max+1):
+                # Initialize values to track minimum SAD and corresponding disparity
+                min_sad = np.inf
+                best_disparity = 0
+
+                # Left image window
+                left_image_window = Il_padded[y:y+window_size, x: x+window_size]
+
+                # Loop over max_disparity for search
+                for disparity in range(-maxd, maxd+1):
+                        # Ensure value is within bounds
+                        if (x+disparity) < 0 or (x+disparity) < (Ir.shape[1] - window_size):
+                                continue
+
+                        # Get the right image window
+                        right_image_window = Ir_padded[y:y+window_size, (x+disparity):x+window_size+disparity]
+
+                        # Compute SAD similarity measure
+                        sad = np.sum(np.abs(left_image_window - right_image_window))
+
+                        if sad < min_sad:
+                                min_sad = sad
+                                best_disparity = disparity
+                
+                # Update Id with optimal disparity for that pixel
+                Id[y,x] = best_disparity
+                
+
+    # Note: Higher disparity means it is closer to image -> Darker
 
     correct = isinstance(Id, np.ndarray) and Id.shape == Il.shape
 
