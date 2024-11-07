@@ -39,6 +39,8 @@ def stereo_disparity_best(Il, Ir, bbox, maxd):
     # Code goes here...
 
     #------------------
+    # Initialize Disparity Image 
+    Id = np.zeros((Il.shape), dtype=np.uint8)
 
     correct = isinstance(Id, np.ndarray) and Id.shape == Il.shape
 

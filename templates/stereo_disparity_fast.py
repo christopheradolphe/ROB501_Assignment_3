@@ -49,38 +49,48 @@ def stereo_disparity_fast(Il, Ir, bbox, maxd):
 
     # Define window size
     # Large window more robust to noise but may smooth out details
-    window_size = 5 # 5x5 windows
+    window_size = 9 # 9x9 windows (found to be best from trial error)
 
     # Initialize Disparity Image 
-    Id = np.zeros((Il.shape))
+    Id = np.zeros((Il.shape), dtype=np.uint8)
 
     # Pad boarders of image
-    padding_size = window_size // 2
-    Il_padded = np.pad(Il, padding_size, mode='edge')
-    Ir_padded = np.pad(Ir, padding_size, mode='edge')
+    half_window = window_size // 2
+    Il_padded = np.pad(Il, half_window, mode='edge')
+    Ir_padded = np.pad(Ir, half_window, mode='edge')
 
     # Find bounding box corner in left image from values from bbox
     x_min, x_max = bbox[0]
     y_min, y_max = bbox[1]
 
+#     # Store shifted right image in dictionary
+#     shifted_image = {}
+#     for disparity in range(maxd + 1):
+#         shifted_image[disparity] = np.roll(Ir, -d, axis=1)
+#         shifted_image[d][:, -d:] = 0  # Set wrapped-around values to 0
+
     # Find disparity values for each pixel in bounding box
-    for y in range(y_min + padding_size, y_max + padding_size + 1):
-        for x in range(x_min + padding_size, x_max + padding_size + 1):
+    for y in range(y_min, y_max + 1):
+        for x in range(x_min, x_max + 1):
                 # Initialize values to track minimum SAD and corresponding disparity
+                y_padded = y + half_window
+                x_padded = x + half_window
+
+                # Variables to optimize
                 min_sad = np.inf
                 best_disparity = 0
 
-                # Left image window
-                left_image_window = Il_padded[y:y+window_size, x: x+window_size]
+                # Left image window centred at (x,y)
+                left_image_window = Il_padded[y_padded - half_window:y_padded+half_window, x_padded-half_window:x_padded+half_window]
 
                 # Loop over max_disparity for search
                 for disparity in range(maxd+1):
                         # Ensure value is within bounds
-                        if (x - disparity) < 0:
+                        if (x_padded - half_window - disparity) < 0:
                                 continue
 
                         # Get the right image window
-                        right_image_window = Ir_padded[y : y + window_size, (x - disparity) : (x - disparity) + window_size]
+                        right_image_window = Ir_padded[y_padded - half_window:y_padded+half_window, x_padded-half_window-disparity:x_padded+half_window-disparity]
 
 
                         # Compute SAD similarity measure
@@ -90,8 +100,7 @@ def stereo_disparity_fast(Il, Ir, bbox, maxd):
                                 min_sad = sad
                                 best_disparity = disparity
                 
-                Id[y - padding_size,x - padding_size] = best_disparity
-        print(y)
+                Id[y,x] = best_disparity
                 
 
     # Note: Higher disparity means it is closer to image -> Darker
