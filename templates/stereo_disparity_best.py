@@ -46,56 +46,63 @@ def stereo_disparity_best(Il, Ir, bbox, maxd):
     #
     #  - Optimize for runtime AND for clarity.
 
-    # Convert images to float
-    Il = Il.astype(np.float32)
-    Ir = Ir.astype(np.float32)
-    
-    # Parameters
-    window_size = 9
+    # Define window size
+    # Large window more robust to noise but may smooth out details
+    window_size = 9 # 9x9 windows (found to be best from trial error)
+
+    # Initialize Disparity Image 
+    Id = np.zeros((Il.shape), dtype=np.uint8)
+
+    # Pad boarders of image
     half_window = window_size // 2
-    P1 = 0.8  # Small disparity change penalty
-    P2 = 8    # Large disparity change penalty
-    
-    # Initialize disparity map and cost volume
-    Id = np.zeros(Il.shape, dtype=np.uint8)
-    height, width = Il.shape
-    cost_volume = np.zeros((height, width, maxd + 1), dtype=np.float32)
-    
-    # Compute ZNCC scores for each disparity
-    for d in range(maxd + 1):
-        # Shift right image
-        shifted_Ir = np.roll(Ir, -d, axis=1)
-        shifted_Ir[:, -d:] = 0  # Handle border pixels
-        # Compute ZNCC scores
-        for y in range(half_window, height - half_window):
-            for x in range(half_window + d, width - half_window):
-                left_patch = Il[y - half_window:y + half_window + 1, x - half_window:x + half_window + 1]
-                right_patch = shifted_Ir[y - half_window:y + half_window + 1, x - half_window:x + half_window + 1]
-                zncc_score = compute_zncc(left_patch, right_patch)
-                cost_volume[y, x, d] = -zncc_score  # Negative for cost minimization
-    
-    # Apply smoothness constraint
-    aggregated_cost = cost_volume.copy()
-    for y in range(half_window, height - half_window):
-        for x in range(half_window + maxd, width - half_window):
-            for d in range(maxd + 1):
-                if x == half_window + maxd:
-                    continue  # Skip first column
-                else:
-                    min_prev_cost = aggregated_cost[y, x - 1, d]
-                    min_prev_cost = min(
-                        aggregated_cost[y, x - 1, d],
-                        aggregated_cost[y, x - 1, d - 1] + P1 if d > 0 else np.inf,
-                        aggregated_cost[y, x - 1, d + 1] + P1 if d < maxd else np.inf,
-                        np.min(aggregated_cost[y, x - 1, :]) + P2
-                    )
-                    aggregated_cost[y, x, d] += min_prev_cost
-    
-    # Select disparities with minimum aggregated cost
-    Id = np.argmin(aggregated_cost, axis=2)
-    
-    # Ensure correct output type and shape
-    Id = Id.astype(np.uint8)
+    Il_padded = np.pad(Il, half_window, mode='edge')
+    Ir_padded = np.pad(Ir, half_window, mode='edge')
+
+    # Find bounding box corner in left image from values from bbox
+    x_min, x_max = bbox[0]
+    y_min, y_max = bbox[1]
+
+#     # Store shifted right image in dictionary
+#     shifted_image = {}
+#     for disparity in range(maxd + 1):
+#         shifted_image[disparity] = np.roll(Ir, -d, axis=1)
+#         shifted_image[d][:, -d:] = 0  # Set wrapped-around values to 0
+
+    # Find disparity values for each pixel in bounding box
+    for y in range(y_min, y_max + 1):
+        for x in range(x_min, x_max + 1):
+                # Initialize values to track minimum SAD and corresponding disparity
+                y_padded = y + half_window
+                x_padded = x + half_window
+
+                # Variables to optimize
+                min_sad = np.inf
+                best_disparity = 0
+
+                # Left image window centred at (x,y)
+                left_image_window = Il_padded[y_padded - half_window:y_padded+half_window, x_padded-half_window:x_padded+half_window]
+
+                # Loop over max_disparity for search
+                for disparity in range(maxd+1):
+                        # Ensure value is within bounds
+                        if (x_padded - half_window - disparity) < 0:
+                                continue
+
+                        # Get the right image window
+                        right_image_window = Ir_padded[y_padded - half_window:y_padded+half_window, x_padded-half_window-disparity:x_padded+half_window-disparity]
+
+
+                        # Compute SAD similarity measure
+                        sad = np.sum(np.abs(left_image_window - right_image_window))
+
+                        if sad < min_sad:
+                                min_sad = sad
+                                best_disparity = disparity
+                
+                Id[y,x] = best_disparity
+                
+
+    # Note: Higher disparity means it is closer to image -> Darker
 
     correct = isinstance(Id, np.ndarray) and Id.shape == Il.shape
 
