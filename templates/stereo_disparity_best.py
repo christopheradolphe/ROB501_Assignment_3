@@ -42,15 +42,15 @@ def stereo_disparity_best(Il, Ir, bbox, maxd):
     Id = np.zeros((Il.shape), dtype=np.uint8)
 
     # Apply LoG filter with a sigma of 1 to preprocess image
-    sigma = 1 
+    sigma = 1
     Il_lg = gaussian_laplace(Il, sigma)
     Ir_lg = gaussian_laplace(Ir, sigma)
 
 
     # Pad boarders of image
     half_window = window_size // 2
-    Il_padded = np.pad(Il, half_window, mode='edge')
-    Ir_padded = np.pad(Ir, half_window, mode='edge')
+    Il_padded = np.pad(Il_lg, half_window, mode='edge')
+    Ir_padded = np.pad(Ir_lg, half_window, mode='edge')
 
     # Find bounding box corner in left image from values from bbox
     x_min, x_max = bbox[0]
@@ -96,7 +96,7 @@ def stereo_disparity_best(Il, Ir, bbox, maxd):
                 Id[y,x] = best_disparity
                 
 
-    Id = median_filter(Id, size=3)
+    Id = median_filter(Id, size=7)
 
     correct = isinstance(Id, np.ndarray) and Id.shape == Il.shape
 
