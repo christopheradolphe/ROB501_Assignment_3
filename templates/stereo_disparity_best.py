@@ -22,17 +22,27 @@ def stereo_disparity_best(Il, Ir, bbox, maxd):
     --------
     Id  - Disparity image (map) as np.array, same size as Il.
     """
-    # Hints:
-    #
-    #  - Loop over each image row, computing the local similarity measure, then
-    #    aggregate. At the border, you may replicate edge pixels, or just avoid
-    #    using values outside of the image.
-    #
-    #  - You may hard-code any parameters you require in this function.
-    #
-    #  - Use whatever window size you think might be suitable.
-    #
-    #  - Optimize for runtime AND for clarity.
+
+    """
+    Description of Algorithm Implemented:
+    In my algorithm, I employed pre-processing using a Laplacian of Gaussian (LoG) 
+    filter and post-processing using a median filter to improve upon the results 
+    observed in part 1). It was observed that the algorithm from part 1) observed 
+    greatest error around the edges in the image. To address this issue, a Laplacian 
+    of Gaussian filter was applied to both the left and right stereo images. The 
+    Gaussian component of the LoG filter reduces noise by smoothing variations in 
+    image intensity, which helps to clarify edges, while the Laplace filter 
+    identifies areas of intensity change, and thus better defines the edges in the 
+    image. After applying this LoG filter it was observed that the disparity mapping 
+    around the edges of objects in the image was improved. When printing out the final 
+    disparity mapping from part 1), it was observed that the image appeared to have 
+    holes with inconsistent colouring, which was most likely the result of noise in 
+    the image. To mitigate this, a median filter was used to post process the disparity 
+    mapping obtained from the SAD algorithm from part 1) to stabilize disparity values 
+    in uniform regions. The standard deviation for the Laplacian of Gaussian filter and 
+    window size for the median filter were tuned for optimal performance, and found 
+    to be 1 and 7, respectively. 
+    """
     
     # Define window size
     # Large window more robust to noise but may smooth out details
@@ -46,7 +56,6 @@ def stereo_disparity_best(Il, Ir, bbox, maxd):
     Il_lg = gaussian_laplace(Il, sigma)
     Ir_lg = gaussian_laplace(Ir, sigma)
 
-
     # Pad boarders of image
     half_window = window_size // 2
     Il_padded = np.pad(Il_lg, half_window, mode='edge')
@@ -55,12 +64,6 @@ def stereo_disparity_best(Il, Ir, bbox, maxd):
     # Find bounding box corner in left image from values from bbox
     x_min, x_max = bbox[0]
     y_min, y_max = bbox[1]
-
-#     # Store shifted right image in dictionary
-#     shifted_image = {}
-#     for disparity in range(maxd + 1):
-#         shifted_image[disparity] = np.roll(Ir, -d, axis=1)
-#         shifted_image[d][:, -d:] = 0  # Set wrapped-around values to 0
 
     # Find disparity values for each pixel in bounding box
     for y in range(y_min, y_max + 1):
