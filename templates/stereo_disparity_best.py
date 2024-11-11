@@ -1,18 +1,6 @@
 import numpy as np
 from scipy.ndimage.filters import *
 
-def compute_zncc(left_patch, right_patch):
-    left_mean = np.mean(left_patch)
-    right_mean = np.mean(right_patch)
-    left_std = np.std(left_patch)
-    right_std = np.std(right_patch)
-    denominator = left_std * right_std
-    if denominator == 0:
-        return 0  # Avoid division by zero
-    numerator = np.sum((left_patch - left_mean) * (right_patch - right_mean))
-    zncc_score = numerator / (denominator * left_patch.size)
-    return zncc_score
-
 def stereo_disparity_best(Il, Ir, bbox, maxd):
     """
     Best stereo correspondence algorithm.
@@ -45,13 +33,19 @@ def stereo_disparity_best(Il, Ir, bbox, maxd):
     #  - Use whatever window size you think might be suitable.
     #
     #  - Optimize for runtime AND for clarity.
-
+    
     # Define window size
     # Large window more robust to noise but may smooth out details
     window_size = 9 # 9x9 windows (found to be best from trial error)
 
     # Initialize Disparity Image 
     Id = np.zeros((Il.shape), dtype=np.uint8)
+
+    # Apply LoG filter with a sigma of 1 to preprocess image
+    sigma = 1 
+    Il_lg = gaussian_laplace(Il, sigma)
+    Ir_lg = gaussian_laplace(Ir, sigma)
+
 
     # Pad boarders of image
     half_window = window_size // 2
@@ -102,7 +96,7 @@ def stereo_disparity_best(Il, Ir, bbox, maxd):
                 Id[y,x] = best_disparity
                 
 
-    # Note: Higher disparity means it is closer to image -> Darker
+    Id = median_filter(Id, size=3)
 
     correct = isinstance(Id, np.ndarray) and Id.shape == Il.shape
 
